@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Préstamo vs Inversión</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #eaeaea;
+      margin: 0;
+      padding: 1rem;
+    }
+    .container {
+      background: #fff;
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      max-width: 900px;
+      margin: 1rem auto;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+    p.description {
+      font-size: 0.95rem;
+      color: #555;
+      margin-bottom: 2rem;
+    }
+    .inputs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 45%;
+    }
+    input {
+      margin-top: 0.25rem;
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    .output {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #fdfdfd;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+    }
+    .highlight {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-top: 1rem;
+      padding: 1rem;
+      background: #eef;
+      border-left: 5px solid #00f;
+      border-radius: 6px;
+    }
+    .info-box {
+      background-color: #f0f9ff;
+      border-left: 5px solid #17a2b8;
+      padding: 1rem;
+      margin-top: 2rem;
+      border-radius: 8px;
+    }
+    .info-box h2 {
+      margin-top: 0;
+      font-size: 1.2rem;
+    }
+    .info-box p {
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+    canvas {
+      margin-top: 2rem;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: none;
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Simulador: Préstamo vs Inversión</h1>
+    <p class="description">Esta calculadora te permite comparar si te conviene pedir un préstamo para invertir tu capital o utilizar directamente tus ahorros. Se consideran intereses, gastos mensuales administrativos, y el crecimiento de la inversión para ambos escenarios.</p>
+
+    <div class="inputs">
+      <label>Monto (€):
+        <input type="number" id="amount" value="5000">
+      </label>
+
+      <label>Tasa APR del préstamo (%):
+        <input type="number" id="loanRate" value="8.9">
+      </label>
+
+      <label>Tasa APR de inversión (%):
+        <input type="number" id="investRate" value="12">
+      </label>
+
+      <label>Duración (meses):
+        <input type="number" id="months" value="60">
+      </label>
+
+      <label>Costos administrativos del préstamo por mes (€):
+        <input type="number" id="fees" value="0">
+      </label>
+    </div>
+
+    <div class="output" id="result"></div>
+
+    <div class="highlight" id="conveniencia"></div>
+
+    <button onclick="exportarCSV()">Exportar CSV</button>
+    <button onclick="window.print()">Exportar a PDF</button>
+
+    <canvas id="chart" width="600" height="300"></canvas>
+
+    <div class="info-box">
+      <h2>¿Cómo interpretar los resultados?</h2>
+      <p>Este simulador te ayuda a comparar si conviene pedir un préstamo para invertir, o si es mejor no endeudarse e invertir sólo el dinero que ya tienes.</p>
+      <p>En el escenario con préstamo, simula que pides un préstamo e inviertes todo ese dinero, devolviéndolo mes a mes. En el escenario sin préstamo, simula que no haces nada con ese dinero y sólo inviertes lo que ya tenías.</p>
+      <p>El gráfico muestra cómo evoluciona el capital mes a mes en ambos escenarios. Al final, se muestra cuál estrategia termina generando más capital.</p>
+      <p>Si aparece "¿Conviene el préstamo? SÍ", significa que pedir el préstamo para invertir habría sido más rentable. Si aparece "NO", entonces fue mejor no endeudarse.</p>
+    </div>
+  </div>
+
+  <script>
+    function calcular() {
+      const amount = parseFloat(document.getElementById('amount').value);
+      const loanRate = parseFloat(document.getElementById('loanRate').value) / 100;
+      const investRate = parseFloat(document.getElementById('investRate').value) / 100;
+      const months = parseInt(document.getElementById('months').value);
+      const fees = parseFloat(document.getElementById('fees').value);
+
+      const monthlyLoanRate = loanRate / 12;
+      const monthlyInvestRate = investRate / 12;
+
+      const cuota = (amount * monthlyLoanRate) / (1 - Math.pow(1 + monthlyLoanRate, -months)) + fees;
+      const totalPagado = cuota * months;
+      const interesPagado = totalPagado - amount - fees * months;
+
+      let inversionConPrestamo = amount;
+      let inversionSinPrestamo = 0;
+      const conPrestamo = [];
+      const sinPrestamo = [];
+
+      for (let i = 0; i < months; i++) {
+        inversionConPrestamo = inversionConPrestamo * (1 + monthlyInvestRate) - cuota;
+        inversionSinPrestamo = inversionSinPrestamo * (1 + monthlyInvestRate);
+        conPrestamo.push(inversionConPrestamo);
+        sinPrestamo.push(inversionSinPrestamo);
+      }
+
+      const totalFinalConPrestamo = conPrestamo[months - 1];
+      const totalFinalSinPrestamo = sinPrestamo[months - 1];
+      const gananciaExtra = totalFinalConPrestamo - totalFinalSinPrestamo;
+
+      document.getElementById('result').innerHTML = `
+        <p><strong>Escenario con préstamo:</strong></p>
+        <p>Total pagado: €${totalPagado.toFixed(2)}</p>
+        <p>Interés pagado (sin contar fees): €${interesPagado.toFixed(2)} (${((interesPagado / amount) * 100).toFixed(2)}% total)</p>
+        <p>Capital final: €${totalFinalConPrestamo.toFixed(2)}</p>
+
+        <p><strong>Escenario sin préstamo:</strong></p>
+        <p>Capital final: €${totalFinalSinPrestamo.toFixed(2)}</p>
+        <p>Ganancia adicional por invertir con préstamo: €${gananciaExtra.toFixed(2)}</p>
+      `;
+
+      document.getElementById('conveniencia').innerText = `¿Conviene el préstamo? ${gananciaExtra > 0 ? 'SÍ' : 'NO'}`;
+
+      localStorage.setItem('prestamo_vs_inversion', JSON.stringify({ amount, loanRate, investRate, months, fees }));
+
+      const ctx = document.getElementById('chart').getContext('2d');
+      if (window.chartInstance) window.chartInstance.destroy();
+      window.chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: Array.from({ length: months }, (_, i) => i + 1),
+          datasets: [
+            {
+              label: 'Con préstamo',
+              data: conPrestamo,
+              borderColor: 'blue',
+              fill: false
+            },
+            {
+              label: 'Sin préstamo',
+              data: sinPrestamo,
+              borderColor: 'green',
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'top',
+            }
+          }
+        }
+      });
+    }
+
+    function exportarCSV() {
+      alert('Funcionalidad CSV pendiente.');
+    }
+
+    window.onload = () => {
+      const saved = localStorage.getItem('prestamo_vs_inversion');
+      if (saved) {
+        const data = JSON.parse(saved);
+        document.getElementById('amount').value = data.amount;
+        document.getElementById('loanRate').value = data.loanRate * 100;
+        document.getElementById('investRate').value = data.investRate * 100;
+        document.getElementById('months').value = data.months;
+        document.getElementById('fees').value = data.fees;
+      }
+      calcular();
+      document.querySelectorAll('input').forEach(input => input.addEventListener('input', calcular));
+    }
+  </script>
+</body>
+</html>
